@@ -1,0 +1,307 @@
+---
+title: "MA331-Report: 2211376"
+author: "Bandoro,Arya"
+date: "2023-03-10"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+always_allow_html: true
+subtitle: TED Talks by Speaker Luma Mufleh and Speaker Karen Armstrong
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Introduction
+
+This the coursework for MA331 by Speaker Luma Mufleh and Speaker Karen Armstrong.The topics that given by the speaker are:
+
+1.  Luma Mufleh :Don't feel sorry for refugees -- believe in them
+
+2.  Karen Armstrong : My wish: The Charter for Compassion
+
+From the given speaker, we will investigate the sentiment that speaker give, either positive or negative statement, we will do that using several libraries. The aim of the report also measure the sentiment impact that given by the speeker while they are given the speech, there are several question that need to be answered by this report, that is
+
+1.  What the most frequent words that speaker give in their speech?
+
+2.  Is there any same words that spoke by the both of the speaker?
+
+3.  What the most frequent words sentiment that speaker used in the speech?
+
+# Methodology
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+## Important note : We need to copy paste the file path (flowchart.drawio.png) to renew the file project (the file included in faser submission)
+```
+
+![For the methodology we used several text analytics method such as Tokenization and also we used several method such as Sentiment analysis and Data Visualization to present and interpret the result, The sentiment analysis will used bing dictionary.](M:/MA331/Project/flowchart.drawio.png){width=30%}
+
+# Result
+
+```{r message=FALSE,include=FALSE, results='hide'}
+#library load
+library(tidyverse)
+library(dplyr)
+library(tidytext)
+library(ggplot2)
+library(RColorBrewer)
+library(wordcloud)
+library(sentimentr)
+library(remotes)
+library(quanteda)
+library(ggrepel)
+library(plotly)
+require(gridExtra)
+install_github("EmilHvitfeldt/textdata")
+install_github("juliasilge/tidytext")
+if(!require("devtools")) install.packages("devtools")
+devtools::install_github("statcourses/dsEssex")
+require(dsEssex)
+```
+
+#### Data Loading & Exploration
+
+
+```{r message=FALSE,warning=FALSE}
+#data load
+data('ted_talks.rda')
+head(ted_talks,n=3)
+```
+
+From there we can also the data, there are several columns, to give more understanding to the data, we can see the structure of the data
+
+```{r message=FALSE,warning=FALSE,include=FALSE, results='hide'}
+str(ted_talks)
+```
+
+From the data we can see that are several type which all are characters. Next we can do some tokenization which will result to this
+
+```{r message=FALSE,warning=FALSE, include=FALSE, results='hide'}
+## data tokenization
+### we do data tokenization
+token_talks <- ted_talks %>% 
+  unnest_tokens(word, text,token = "ngrams", n = 1)
+### removal of stopwords
+ted_talks_clean <- token_talks %>%
+  anti_join(get_stopwords())
+```
+
+```{r message=FALSE}
+### Showing the data
+head(ted_talks_clean,n=3)
+```
+
+From the data we already did the tokenization, the tokenization is used to doing some sentiment analysis and also doing some analysis to the words of the data.
+
+After doing some tokenization we can specified into the specific speaker and counting the frequent word that used by the speaker will show the data below
+
+```{r message=FALSE,warning=FALSE,include=FALSE, results='hide'}
+##data filtering
+### we will filtered by two speaker 
+#### first one is filtered the speaker of luma
+luma_words <- ted_talks_clean %>%
+  filter(speaker == "Luma Mufleh") %>% 
+  count(speaker, word, sort = TRUE)
+#### second one is our next speaker is Karen Armstrong
+karen_words <- ted_talks_clean %>%
+  filter(speaker == "Karen Armstrong") %>% 
+  count(speaker, word, sort = TRUE)
+```
+
+For Luma Mufleh
+
+```{r message=FALSE}
+head(luma_words,n=5)
+```
+
+For Karen Armstrong
+
+```{r message=FALSE}
+head(karen_words,n=5)
+```
+
+To Easier and compared the most frequent word that talked by the speaker we can use graph to specified that
+
+```{r message=FALSE, out.width="50%"}
+### for luma
+#### for luma we can do some of geom col plotting to see what the most frequent words
+
+plot_1 <- luma_words %>%
+  slice_max(n, n = 10) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) + ggplot2::geom_col()+ggtitle("Luma Mufleh")
+
+plot_2 <- karen_words %>%
+  slice_max(n, n = 10) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) + ggplot2::geom_col()+ggtitle("Karen Armstrong")
+
+
+grid.arrange(plot_1, plot_2,ncol=2)
+```
+
+And also we can use a wordcloud to easier our findings, where the left sides is from luma and the right sides from karen
+
+```{r message=FALSE,warning=FALSE}
+par(mfrow=c(1,2))
+wordcloud(luma_words$word, freq = luma_words$n, 
+          scale=c(3,0.01), min.freq = 1, max.words=25, 
+          random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"),
+          main="Luma Mufleh")
+
+wordcloud(karen_words$word, freq = karen_words$n, 
+          scale=c(2,0.01), min.freq = 1, max.words=25, 
+          random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"),
+          main="Karen Armstrong")
+
+```
+
+From the data, we can see that there are several word that most frequently said by the speaker, for luma for instance we can see that the most frequents word are
+
+1.  People
+
+2.  One
+
+3.  Kids
+
+And for karen the most frequent words are
+
+1.  People
+
+2.  Religion
+
+3.  Religious
+
+If we further see, there are same words that spoke by each speaker, we can also compare it as it shown by below graphs
+
+```{r message=FALSE,out.width="50%"}
+### we can also compare the word between two speaker using this command
+dplyr::bind_rows(luma_words, karen_words) %>%
+  group_by(word) %>%
+  filter(sum(n) > 9) %>%
+  ungroup() %>%
+  pivot_wider(names_from = "speaker", values_from = "n", values_fill = 0) %>%
+  ggplot(aes(`Luma Mufleh`, `Karen Armstrong`)) +
+  geom_abline(intercept=0)+
+  geom_text_repel(aes(label = word), max.overlaps = 15) +
+  coord_fixed()
+```
+
+From the data below, we can see that there are several words that are spoken by the two of the speakers, such as people and one is one of the two words that spoke frequently by both of the speakers
+
+#### Sentiment Analysis
+
+From the data we can also make a sentiment analysis to richen our findings, as the sentiment analysis are make, we find as shown below
+
+For Luma Muflek
+
+```{r message=FALSE}
+bing <- get_sentiments("bing")
+df_sentiment_luma <-luma_words[luma_words$speaker=='Luma Mufleh',]%>%
+  left_join(bing)
+colnames(df_sentiment_luma) <- c("speaker","word","n","sent")
+df_summary_luma <- df_sentiment_luma %>% group_by(df_sentiment_luma$sent) %>% summarize(count=n())
+colnames(df_summary_luma) <- c("Sentiment","Frequency")
+df_sentiment_fix_luma <- na.omit(df_summary_luma)
+df_sentiment_fix_luma
+
+
+```
+
+For Karen Armstrong
+
+```{r message=FALSE}
+df_sentiment_karen <-karen_words[karen_words$speaker=='Karen Armstrong',]%>%
+  left_join(bing)
+colnames(df_sentiment_karen) <- c("speaker","word","n","sent")
+df_summary_karen <- df_sentiment_karen %>% group_by(df_sentiment_karen$sent) %>% summarize(count=n())
+colnames(df_summary_karen) <- c("Sentiment","Frequency")
+df_sentiment_fix_karen <- na.omit(df_summary_karen)
+df_sentiment_fix_karen
+```
+
+
+```{r message=FALSE,out.width="50%"}
+x <- c('Positive', 'Negative')
+y <- c(34,55)
+y2 <- c(49,60)
+text <- c('Luma Muflek','Karen Armstrong')
+data <- data.frame(x, y, y2, text)
+
+fig <- data %>% plot_ly()
+fig <- fig %>% add_trace(x = ~x, y = ~y, type = 'bar',
+             text = y, textposition = 'auto',name='Luma Muflek',
+             marker = list(color = 'rgb(158,202,225)',
+                           line = list(color = 'rgb(8,48,107)', width = 1.5)))
+fig <- fig %>% add_trace(x = ~x, y = ~y2, type = 'bar',
+            text = y2,name='Karen Armstrong', textposition = 'auto',
+            marker = list(color = 'rgb(58,200,225)',
+                          line = list(color = 'rgb(8,48,107)', width = 1.5)))
+fig <- fig %>% layout(title = "Sentiment Analysis",
+         barmode = 'group',
+         xaxis = list(title = ""),
+         yaxis = list(title = ""))
+
+
+```
+
+
+Next, we can compute the log odds ratio of the data which will result below
+
+```{r message=FALSE, warning=FALSE}
+nrc <- get_sentiments("nrc")
+df_sentiment_luma_2 <-luma_words[luma_words$speaker=='Luma Mufleh',]%>%
+  inner_join(nrc)
+colnames(df_sentiment_luma_2) <- c("speaker","word","n","sent")
+df_summary_luma_2 <- df_sentiment_luma_2 %>% group_by(df_sentiment_luma_2$sent) %>% summarize(count=n())
+colnames(df_summary_luma_2) <- c("Sentiment","Frequency")
+df_sentiment_fix_luma_2 <- na.omit(df_summary_luma_2)
+colnames(df_sentiment_fix_luma_2) <- c("Sentiment","Luma Mufleh")
+
+
+df_sentiment_karen_2 <-karen_words[karen_words$speaker=='Karen Armstrong',]%>%
+  inner_join(nrc)
+colnames(df_sentiment_karen_2) <- c("speaker","word","n","sent")
+df_summary_karen_2 <- df_sentiment_karen_2 %>% group_by(df_sentiment_karen_2$sent) %>% summarize(count=n())
+colnames(df_summary_karen_2) <- c("Sentiment","Frequency")
+df_sentiment_fix_karen_2 <- na.omit(df_summary_karen_2)
+colnames(df_sentiment_fix_karen_2) <- c("Sentiment","Karen Armstrong")
+
+
+fix_sentiment <- df_sentiment_fix_luma_2 %>% inner_join(df_sentiment_fix_karen_2)
+fix_sentiment$OR <- compute_OR(fix_sentiment$`Luma Mufleh`,fix_sentiment$`Karen Armstrong`)
+fix_sentiment$log_or <- log(fix_sentiment$OR) 
+fix_sentiment$Ci_lower <- CI_log_OR(fix_sentiment$log_or,fix_sentiment$`Luma Mufleh`,fix_sentiment$`Karen Armstrong`,upper=FALSE)
+fix_sentiment$Ci_upper <- CI_log_OR(fix_sentiment$log_or,fix_sentiment$`Luma Mufleh`,fix_sentiment$`Karen Armstrong`)
+fix_sentiment <- fix_sentiment %>%  arrange(desc(OR))
+fix_sentiment
+
+
+```
+From there we can use data visualization as shown below
+
+```{r message=FALSE, warning=FALSE,out.width="50%"}
+fig_2 <- fix_sentiment %>% mutate(Color = ifelse(log_or <0, "red","blue"),coba = reorder(Sentiment, log_or)) %>%
+  ggplot(aes(x = log_or, y = coba, fill = Color))+
+  geom_col()+xlab("Log Odd Ratio") +ylab("Sentiment")+
+  scale_fill_identity(guide = FALSE)
+
+subplot(fig, fig_2, nrows = 2, margin = 0.04, heights = c(0.6, 0.4))
+
+```
+From there we can see that Luma Mufleh tends to use negative words or she tends to use more negative sentiments word compared with Karen Armstrong, from the sentiment analysis, we can say that, 66% of the meaning words that said by Luma Mufleh have negative sentiment, and 55% words that used by Karen Armstrong are have a negative sentiments.
+
+From the data also we could see that the positive ratio means the sentiment are more likely to accure, on the other hand negative log odds ratio shows opposite, from the data we could see that from both speaker negative words are more likely to accure
+
+# Conclusion
+
+The conclusion of the analysis as we can list below:
+
+1.  Luma Muflek are tends to used more negative words compared to Karen Armstrong
+
+2.  There is one words that most spoke by the two speakers where the words is 'People'
+
+3.  From the logg odds ratio, negative words are more likely to accure
+
